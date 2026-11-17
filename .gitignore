@@ -1,0 +1,17 @@
+# Python environment and caches
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Secrets
+.env
+
+# Data (reproducible via ingestion scripts; may contain address text)
+data/raw/
+data/interim/
+data/processed/
+
+# OS / editor
+.DS_Store
+Thumbs.db
