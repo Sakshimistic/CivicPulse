@@ -86,7 +86,8 @@ def test_genuine_negative_duration_is_flagged_not_dropped():
 
 
 def test_open_case_has_age_and_no_resolution():
-    out = run(make_row(CaseStatus="OPEN", ClosedDateTime=None, OpenedDateTime=ms("2026-11-12 21:59:50")))
+    # Raw 15:59:50 is local (CST, UTC-6) = 21:59:50 UTC, exactly 24h before the snapshot
+    out = run(make_row(CaseStatus="OPEN", ClosedDateTime=None, OpenedDateTime=ms("2026-11-12 15:59:50")))
     assert out.loc[0, "open_age_hours"] == pytest.approx(24.0)
     assert pd.isna(out.loc[0, "resolution_hours"])
     assert not bool(out.loc[0, "is_valid_resolution"])
@@ -146,19 +147,44 @@ def test_late_flag_taken_from_source():
     assert list(out["is_late_source"]) == [True, False]
 
 
-def test_local_time_is_america_chicago():
-    # 2026-01-01 12:00 UTC is 06:00 in Chicago (CST, UTC-6)
+def test_raw_times_are_treated_as_local_wall_clock():
+    # Raw 12:00 in January is 12:00 Chicago local = 18:00 true UTC (CST, UTC-6)
     out = run(make_row())
-    assert out.loc[0, "opened_local"].hour == 6
-    assert out.loc[0, "opened_hour"] == 6
+    assert out.loc[0, "opened_local"].hour == 12
+    assert out.loc[0, "opened_hour"] == 12
+    assert out.loc[0, "opened_utc"].hour == 18
     assert str(out.loc[0, "opened_utc"].tz) == "UTC"
 
 
-def test_local_date_can_differ_from_utc_date():
-    # 2026-01-01 03:00 UTC is still 2025-12-31 in Chicago
-    out = run(make_row(OpenedDateTime=ms("2026-01-01 03:00"), ClosedDateTime=ms("2026-01-02 03:00")))
+def test_summer_time_uses_cdt_offset():
+    # Raw 12:00 in July is 12:00 local = 17:00 true UTC (CDT, UTC-5)
+    out = run(make_row(OpenedDateTime=ms("2026-07-01 12:00"), ClosedDateTime=ms("2026-07-02 12:00")))
+    assert out.loc[0, "opened_utc"].hour == 17
+    assert out.loc[0, "resolution_hours"] == pytest.approx(24.0)
+
+
+def test_local_date_matches_raw_date_late_evening():
+    # Raw 23:30 on Dec 31 stays Dec 31 local (it would roll to Jan 1 if read as UTC)
+    out = run(make_row(OpenedDateTime=ms("2025-12-31 23:30"), ClosedDateTime=ms("2026-01-02 12:00")))
     assert out.loc[0, "opened_year"] == 2025
     assert out.loc[0, "opened_month"] == 12
+
+
+def test_spring_forward_gap_does_not_crash():
+    # 2026-03-08 02:30 does not exist in Chicago; it is shifted forward, not dropped
+    out = run(make_row(OpenedDateTime=ms("2026-03-08 02:30"), ClosedDateTime=ms("2026-03-09 12:00")))
+    assert len(out) == 1
+    assert pd.notna(out.loc[0, "opened_utc"])
+
+
+def test_in_report_window_flag():
+    rows = [
+        make_row(CaseID=1, OpenedDateTime=ms("2025-11-06 23:59"), ClosedDateTime=ms("2025-11-20 12:00")),
+        make_row(CaseID=2, OpenedDateTime=ms("2025-11-07 00:01"), ClosedDateTime=ms("2025-11-20 12:00")),
+        make_row(CaseID=3, OpenedDateTime=ms("2026-03-01 12:00"), ClosedDateTime=ms("2026-03-02 12:00")),
+    ]
+    out = run(*rows)
+    assert list(out["in_report_window"]) == [False, True, True]
 
 
 def test_report_window_columns_are_dropped():

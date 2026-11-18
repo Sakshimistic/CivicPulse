@@ -60,6 +60,28 @@ def normalize_source(series):
     )
 
 
+# The source stores San Antonio wall-clock time labelled as UTC. Evidence: requests
+# ramp up sharply at 07:00-08:00 and fall off overnight when read as local time;
+# read as true UTC they would peak at 3-10am Central. The layer metadata has no
+# time-zone information, so this is an inference (docs/data_quality_report.md 2.9).
+RAW_TIMES_ARE_LOCAL = True
+
+# Start of the layer's reporting window (ReportStartingDate = 2025-11-07 00:00 local).
+WINDOW_START = pd.Timestamp("2025-11-07", tz="UTC") + pd.Timedelta(hours=6)  # CST, UTC-6
+
+
+def to_true_utc(series):
+    """Raw values arrive labelled UTC. If they are really local wall-clock time,
+    relabel them as America/Chicago and convert to true UTC.
+    Ambiguous fall-back hours use standard time; missing spring-forward hours shift forward."""
+    if not RAW_TIMES_ARE_LOCAL:
+        return series
+    local = series.dt.tz_localize(None).dt.tz_localize(
+        LOCAL_TZ, ambiguous=False, nonexistent="shift_forward"
+    )
+    return local.dt.tz_convert("UTC")
+
+
 def clean(df, snapshot_utc):
     out = pd.DataFrame()
 
@@ -76,12 +98,21 @@ def clean(df, snapshot_utc):
     out["invalid_close_date"] = raw_closed.dt.year < 2000
     closed = raw_closed.mask(out["invalid_close_date"])
 
-    # Rule 2: genuine negative duration (close before open, not the placeholder)
-    out["negative_duration"] = (closed < raw_opened).fillna(False)
-
     # Rule 5: SLADate placeholders (year < 2000) -> NULL
     out["invalid_sla_date"] = raw_sla.dt.year < 2000
     sla = raw_sla.mask(out["invalid_sla_date"])
+
+    # Rule 8: raw values are local wall-clock time; convert to true UTC
+    raw_opened = to_true_utc(raw_opened)
+    closed = to_true_utc(closed)
+    sla = to_true_utc(sla)
+
+    # Rule 2: genuine negative duration (close before open, not the placeholder)
+    out["negative_duration"] = (closed < raw_opened).fillna(False)
+
+    # Rule 10: rolling-window cohort. The layer's ReportStartingDate (2025-11-07, local
+    # midnight) marks where full coverage begins; earlier requests are survivors only.
+    out["in_report_window"] = raw_opened >= WINDOW_START
 
     out["opened_utc"] = raw_opened
     out["closed_utc"] = closed

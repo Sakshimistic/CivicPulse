@@ -96,7 +96,7 @@ Python (requests, pandas, GeoPandas), PySpark, PostgreSQL, dbt, FastAPI, an LLM 
 
 - Raw data is immutable, and every run is documented by a manifest.
 - Anomalies are flagged and explained, not hidden.
-- UTC timestamps are the source of truth, and local time is derived.
+- Time zones are checked against the data, not assumed. True UTC and local time are both kept.
 - Weather and demographic comparisons are descriptive and do not claim causation.
 - The AI assistant never has unrestricted database access and never invents numbers.
 - Public dashboards do not expose exact residential addresses.

@@ -28,7 +28,11 @@ City operations leadership, 311 program managers, department managers, data and 
 - **Period:** a request belongs to the period of its opened date, in San Antonio local time (`America/Chicago`) unless stated otherwise.
 - **Snapshot:** backlog and open-age metrics are as of the extraction time, stored in the manifest (current snapshot: 2026-11-13 21:59:50 UTC). Always show the snapshot date next to them.
 - **Category:** use the cleaned `category`, which includes `Unknown`. Never drop `Unknown`.
-- **Complete periods:** trend and change metrics use complete months only. The current month is excluded or labelled partial. The snapshot data ends 2026-11-06.
+- **Window cohort:** the layer is a rolling one-year window (see data quality report 2.8). Volume, mix and resolution KPIs use requests with `in_report_window = true` (opened on or after 2025-11-07). Requests opened earlier are a biased survivor set. They count only toward the open backlog.
+- **No multi-year trends:** year-over-year change cannot be calculated from this layer. Seasonality covers one year.
+- **Complete periods:** trend and change metrics use complete months only (currently Dec 2025 to Oct 2026). Data ends 2026-11-06.
+- **Maturity:** resolution KPIs use requests opened at least 3 months before the snapshot, because recent requests that are still open would bias resolution times short.
+- **Districts:** `council_district = 0` is shown as "Unassigned" and is not treated as a district.
 - **Excluded records:** flagged records stay in the data. They are excluded only from the metrics named below, and the excluded count is shown.
 
 ## 5. KPI definitions
@@ -47,7 +51,7 @@ City operations leadership, 311 program managers, department managers, data and 
 | Volume by category / department / type | Count of `case_id` grouped by the field | `category`, `department`, `type_name` | Department is the owning department as recorded. Ownership semantics unconfirmed. |
 | Volume by council district | Count of `case_id` grouped by `council_district` | `council_district` | Verify district values against official boundaries before district-level claims. |
 | Month-over-month change | (Month volume - prior month volume) / prior month volume | monthly counts | Complete months only. |
-| Year-over-year change | Same period this year vs last year | monthly counts | Complete periods only. Source starts 2020-10-30. |
+| Year-over-year change | Same period this year vs last year | monthly counts | **Not available** from this layer (one-year window). Needs another source or repeated snapshots. |
 | Day / hour pattern | Count by `opened_weekday`, `opened_hour` | local-time fields | Local time. |
 | Requests per 1,000 residents | Requests / population x 1,000 | Census ACS | Only when geography and year align. Planned, needs Census data. |
 | Repeat issue rate | Defined repeats in a spatial and time window | `latitude`, `longitude`, `category` | Planned. Spatial and time rules to be set in the analytics phase. |

@@ -1,8 +1,8 @@
 # Data Dictionary
 
-Describes the curated file `data/processed/311/311_enriched.parquet` (39 columns, 510,535 rows, one row per 311 request).
+Describes the curated file `data/processed/311/311_enriched.parquet` (40 columns, 510,535 rows, one row per 311 request).
 Source: City of San Antonio 311 All Service Calls (ArcGIS). Built by `clean_311.py` then `enrich_311.py`.
-Timestamps are timezone-aware. Raw values are Unix milliseconds in UTC.
+Timestamps are timezone-aware. Raw values are Unix milliseconds labelled UTC.
 
 ## Identifiers
 | Column | Type | Meaning |
@@ -10,7 +10,9 @@ Timestamps are timezone-aware. Raw values are Unix milliseconds in UTC.
 | `objectid` | int | ArcGIS row id. Unique. |
 | `case_id` | int | Service request id. Unique. Business key. |
 
-## Time (UTC kept, local derived)
+## Time (local wall-clock time in the source, converted)
+
+The source labels its timestamps UTC, but they behave like San Antonio local clock times (see data quality report 2.9). The cleaning step treats them as local and derives true UTC from them.
 | Column | Type | Meaning |
 |---|---|---|
 | `opened_utc` | datetime (UTC) | When the request was opened. |
@@ -35,6 +37,7 @@ Timestamps are timezone-aware. Raw values are Unix milliseconds in UTC.
 ## Data-quality flags
 | Column | Type | Meaning |
 |---|---|---|
+| `in_report_window` | bool | Opened on or after 2025-11-07 local, so fully represented in the rolling one-year layer (497,550 rows). Earlier rows are survivors only. |
 | `invalid_close_date` | bool | Source close date was a 1900 placeholder (780 rows). |
 | `negative_duration` | bool | Close time earlier than open time, not the placeholder (2 rows). |
 | `invalid_sla_date` | bool | Source SLA date was a pre-2000 placeholder (537 rows). |
